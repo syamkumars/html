@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Ultimate Useless Button</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            transition: background-color 0.8s, color 0.8s, filter 0.5s, transform 1s;
+            padding: 20px;
+            overflow: hidden;
+        }
+        body.night-mode { background-color: #121212; color: #e0e0e0; }
+        body.sepia { filter: sepia(1); }
+        body.grayscale { filter: grayscale(100%); }
+        body.blur { filter: blur(5px); }
+        h1 { margin-bottom: 30px; font-size: 2.5em; text-align: center; transition: color 0.5s; }
+        button {
+            padding: 20px 40px;
+            font-size: 1.6em;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+        }
+        button:hover { background-color: #c0392b; transform: scale(1.05); }
+        #message { margin-top: 30px; font-size: 1.4em; min-height: 1.8em; opacity: 0; transition: opacity 0.6s; }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 10%,30%,50%,70%,90%{transform:translateX(-10px)} 20%,40%,60%,80%{transform:translateX(10px)} }
+        .shaking { animation: shake 0.8s; }
+        #confetti-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100; opacity: 0; transition: opacity 0.4s; }
+        .modal.show { display: flex; opacity: 1; }
+        .modal-content { background: white; padding: 30px; border-radius: 20px; text-align: center; max-width: 500px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); transform: scale(0.8); transition: transform 0.4s; }
+        .modal.show .modal-content { transform: scale(1); }
+        .modal-content img, .modal-content video { max-width: 100%; border-radius: 10px; margin-top: 20px; }
+        #demon-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(139,0,0,0.95); display: none; justify-content: center; align-items: center; color: #ff0000; font-size: 5em; font-weight: bold; text-shadow: 0 0 30px #ff0000; z-index: 200; opacity: 0; transition: opacity 1.5s; }
+        #demon-overlay.active { display: flex; opacity: 1; }
+        #webcam-video { width: 400px; height: 300px; object-fit: cover; border-radius: 15px; transform: scaleX(-1); }
+        #countdown { font-size: 3em; color: #fff; }
+        .rainbow-text { animation: rainbow 3s infinite; }
+        @keyframes rainbow { 0%{color:red} 14%{color:orange} 28%{color:yellow} 42%{color:green} 57%{color:blue} 71%{color:indigo} 85%{color:violet} 100%{color:red} }
+        #fake-progress { width: 300px; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden; margin-top: 20px; display: none; }
+        #fake-progress-bar { height: 100%; width: 0%; background: #27ae60; transition: width 0.1s; }
+    </style>
+</head>
+<body>
+    <h1>This button does absolutely nothing... or does it?</h1>
+    <button id="useless-button">Click Me (At Your Own Risk)</button>
+    <div id="message"></div>
+    <div id="fake-progress"><div id="fake-progress-bar"></div></div>
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <div class="modal" id="generic-modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Surprise!</h2>
+            <p id="modal-text"></p>
+            <div id="modal-media"></div>
+        </div>
+    </div>
+
+    <div id="demon-overlay">DEMON SUMMONED!</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script>
+        'use strict';
+
+        const button = document.getElementById('useless-button');
+        const messageDiv = document.getElementById('message');
+        const body = document.body;
+        const modal = document.getElementById('generic-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalText = document.getElementById('modal-text');
+        const modalMedia = document.getElementById('modal-media');
+        const demonOverlay = document.getElementById('demon-overlay');
+        const progressBar = document.getElementById('fake-progress-bar');
+        const fakeProgress = document.getElementById('fake-progress');
+
+        let clickCount = 0;
+        let webcamStream = null;
+
+        // Pre-fetched image URLs (safe, fun content)
+        const randomImages = [
+            { url: "https://lh3.googleusercontent.com/sitesv/AAzXCkeutTmMeLNxEdi0IPsVicMTxzuHxzNPKHN5orKi6TaDhgO1rJqVDScqr85ZlEKFa2M5-ZS23FTq2JkEsMAjm6E168d5LVI104VFFkfGaet38rpkEMgBU0Lmc5rZ3_FgH5pfJF3CwsJclK973UVj8LK1i34wovGoktfdp2oLtbZTiHjZjRMhsKqgms6P5TEQuQWfh5hr4A14WCfiiS89K4jdvmMhD8HQg9yGV6U=w1280", alt: "Emma Watson smiling" },
+            { url: "https://neon.reviewjournal.com/wp-content/uploads/2020/02/13355782_web1_scarjored.jpg", alt: "Scarlett Johansson on red carpet" },
+            { url: "https://hips.hearstapps.com/hmg-prod/images/01-0000-elm020118coverstory-018-1515435842.jpg?crop=1.00xw:0.617xh;0,0&resize=768:*", alt: "Margot Robbie glamorous" },
+            { url: "https://i.abcnewsfe.com/a/32457ac3-fcc2-4c0b-9844-c94d314e726f/Zendaya3a-sh-ml-250106_1736179748709_hpMain.jpg", alt: "Zendaya elegant portrait" },
+            { url: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhHQfm2PR9UD3TjXsWB3t_Rmlyn7_xSz4M-g6mRhppEIIREktOisT9RDn8BDCCf3owOw6ti9GUBFWz2ZRkUOpfphW6wbjcE-7_nKKZF7O5oFE_ToZYWqdwmAyWFuF9NtjtlqM8EKf5H5y_qf8BFPcNMuMK89uGn15rPiGssTzG9KW-7BwbYdV7FOTcTwuE/w1200-h630-p-k-no-nu/left3.png", alt: "Cute golden retriever puppy" },
+            { url: "https://m.media-amazon.com/images/I/71ewC2jLtyL.jpg", alt: "Funny cat meme" },
+            { url: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgSux4MaYZDL2yo0jqh8R4fFYBTMne4a5vocYxJTL4PjOc7JL4dTlFOPjPSQaz_VD4u-8-FWb2-7M5pApck7oI_dbvOpF6gcpAPzbpb_7GhYojzbCHiYF3IEh3R_y7cxTOqVVqW7z6TGC8shgYtfP3D6-oLSZxJDMVh3nVlpAsagq5_XoEQ5aJIsGX5A-QX/w1200-h630-p-k-no-nu/center1.png", alt: "Rick Astley (Rickroll)" },
+            { url: "https://media.wired.com/photos/59a459d3b345f64511c5e3d4/191:100/w_1280,c_limit/MemeLoveTriangle_297886754.jpg", alt: "Distracted boyfriend meme" },
+            { url: "https://media.tenor.com/MYZgsN2TDJAAAAAe/this-is.png", alt: "This is fine dog meme" },
+            { url: "https://i.ytimg.com/vi/5CBW9AG8YKA/maxresdefault.jpg", alt: "Success kid meme" }
+        ];
+
+        function playSound(freq = 440, dur = 0.2, type = 'sine') {
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.type = type; osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.4, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur);
+            osc.start(); osc.stop(ctx.currentTime + dur);
+        }
+
+        function showMessage(text, color = '#e74c3c', duration = 4000) {
+            messageDiv.textContent = text;
+            messageDiv.style.color = color;
+            messageDiv.style.opacity = 1;
+            setTimeout(() => messageDiv.style.opacity = 0, duration);
+        }
+
+        function shakeButton() { button.classList.add('shaking'); setTimeout(() => button.classList.remove('shaking'), 800); playSound(150, 0.4, 'square'); }
+
+        function triggerConfetti() { confetti({ particleCount: 200, spread: 90, origin: { y: 0.6 } }); showMessage("🎉 PARTY TIME!", '#2ecc71', 5000); playSound(1000, 0.2); }
+
+        function toggleNightMode() { body.classList.toggle('night-mode'); showMessage(body.classList.contains('night-mode') ? "🌙 Dark mode" : "☀️ Light mode", '#9b59b6'); }
+
+        function invertScreen() { body.style.filter = body.style.filter.includes('invert') ? '' : 'invert(1)'; showMessage("Colors inverted!", '#f39c12'); }
+
+        function applySepia() { body.classList.toggle('sepia'); showMessage("Old-timey sepia filter!", '#d35400'); }
+
+        function applyGrayscale() { body.classList.toggle('grayscale'); showMessage("Life in black & white", '#7f8c8d'); }
+
+        function applyBlur() { body.classList.toggle('blur'); setTimeout(() => body.classList.remove('blur'), 3000); showMessage("Everything blurry for 3s!", '#34495e'); }
+
+        function summonDemon() { demonOverlay.classList.add('active'); playSound(80, 2, 'sawtooth'); setTimeout(() => demonOverlay.classList.remove('active'), 4000); showMessage("😈 Demon summoned!", '#8b0000', 6000); }
+
+        function fakeVirus() { showModal("⚠️ VIRUS DETECTED", "Your files are being deleted... JK! 😏"); playSound(200, 0.5, 'square'); }
+
+        function fakeLoading() {
+            fakeProgress.style.display = 'block';
+            let width = 0;
+            const interval = setInterval(() => {
+                width += Math.random() * 15;
+                if (width >= 100) { clearInterval(interval); width = 100; showMessage("Download complete: Nothing.zip"); fakeProgress.style.display = 'none'; }
+                progressBar.style.width = width + '%';
+            }, 200);
+            showMessage("Downloading useless update...", '#3498db');
+        }
+
+        function showRandomImage() {
+            const img = randomImages[Math.floor(Math.random() * randomImages.length)];
+            showModal("Random Surprise Image", "", `<img src="${img.url}" alt="${img.alt}">`);
+        }
+
+        function showModal(title, text, media = '') {
+            modalTitle.textContent = title;
+            modalText.textContent = text;
+            modalMedia.innerHTML = media;
+            modal.classList.add('show');
+            setTimeout(() => modal.classList.remove('show'), 5000);
+        }
+
+        function rainbowText() { messageDiv.classList.add('rainbow-text'); showMessage("RAINBOW MODE ACTIVATED!", '', 8000); setTimeout(() => messageDiv.classList.remove('rainbow-text'), 8000); }
+
+        function tiltPage() { body.style.transform = `rotate(${Math.random() * 20 - 10}deg)`; setTimeout(() => body.style.transform = '', 2000); showMessage("World tilted!", '#e67e22'); }
+
+        function rapidShakes() { for (let i = 0; i < 8; i++) setTimeout(shakeButton, i * 100); }
+
+        function buttonBounce() { button.style.transform = 'scale(2)'; setTimeout(() => button.style.transform = '', 500); playSound(900, 0.3); }
+
+        function fakeBSOD() {
+            body.innerHTML = '<div style="background:#000;color:#fff;font-family:Courier New;padding:40px;"><h1>A problem has been detected...</h1><p>USELESS_BUTTON_OVERLOAD</p></div>';
+            setTimeout(() => location.reload(), 5000);
+        }
+
+        function countClicks() { clickCount++; showMessage(`Clicks: ${clickCount}`, '#2980b9', 3000); }
+
+        function takeWebcamSelfie() {
+            showModal("📸 Selfie Time!", "Allow camera access for a surprise selfie in 5 seconds...");
+            navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+                webcamStream = stream;
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.play();
+                modalMedia.innerHTML = '';
+                modalMedia.appendChild(video);
+                video.style.width = '100%';
+                let countdown = 5;
+                const cd = document.createElement('div');
+                cd.id = 'countdown';
+                cd.textContent = countdown;
+                modalMedia.appendChild(cd);
+                const interval = setInterval(() => {
+                    countdown--;
+                    cd.textContent = countdown;
+                    if (countdown <= 0) {
+                        clearInterval(interval);
+                        showMessage("📸 Smile! (Just kidding, nothing saved)", '#ff9ff3');
+                        setTimeout(stopWebcam, 2000);
+                    }
+                }, 1000);
+            }).catch(() => showMessage("Camera denied. No selfie for you!", '#c0392b'));
+        }
+
+        function stopWebcam() {
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+            }
+            modal.classList.remove('show');
+        }
+
+        function playRickRollSound() { playSound(440, 0.1); playSound(523, 0.1); playSound(587, 0.1); playSound(659, 0.3); showMessage("🎵 Never gonna give you up...", '#ff4757'); }
+
+        function fakeAchievement() { showMessage("🏆 Achievement Unlocked: Persistent Clicker", '#f1c40f', 6000); triggerConfetti(); }
+
+        function changeButtonText() {
+            const texts = ["Stop Clicking!", "Why?", "Enough!", "Please Stop", "I'm Begging You"];
+            button.textContent = texts[Math.floor(Math.random() * texts.length)];
+            setTimeout(() => button.textContent = "Click Me (At Your Own Risk)", 3000);
+        }
+
+        function zoomPage() { document.body.style.zoom = "200%"; setTimeout(() => document.body.style.zoom = "100%", 3000); showMessage("ZOOMED IN!", '#e74c3c'); }
+
+        function spinButton() {
+            button.style.transition = 'transform 1s';
+            button.style.transform = 'rotate(360deg)';
+            setTimeout(() => button.style.transform = '', 1000);
+        }
+
+        function nothingHappens() { showMessage("Absolutely nothing happened.", '#95a5a6', 3000); playSound(100, 0.05); }
+
+        // 28 unique effects
+        const actions = [
+            shakeButton,
+            triggerConfetti,
+            toggleNightMode,
+            invertScreen,
+            applySepia,
+            applyGrayscale,
+            applyBlur,
+            summonDemon,
+            fakeVirus,
+            fakeLoading,
+            showRandomImage,
+            rainbowText,
+            tiltPage,
+            rapidShakes,
+            buttonBounce,
+            fakeBSOD,
+            countClicks,
+            takeWebcamSelfie,
+            playRickRollSound,
+            fakeAchievement,
+            changeButtonText,
+            zoomPage,
+            spinButton,
+            nothingHappens,
+            () => showMessage("🦗 Crickets...", '#7f8c8d', 4000),
+            () => { body.style.backgroundColor = '#'+Math.floor(Math.random()*16777215).toString(16); showMessage("Random background color!", '#000'); },
+            () => showModal("Quote of the Day", "The more you click, the less happens."),
+            () => { showMessage("You have been clicking for " + clickCount + " times. Seek help.", '#e74c3c'); }
+        ];
+
+        button.addEventListener('click', () => {
+            if (button.classList.contains('shaking')) return;
+            clickCount++;
+            const action = actions[Math.floor(Math.random() * actions.length)];
+            action();
+        });
+
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); stopWebcam(); });
+    </script>
+</body>
+</html>
